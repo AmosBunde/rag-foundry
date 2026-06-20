@@ -1,0 +1,32 @@
+# Redis-backed sliding window rate limits for Multi-Modal RAG
+limits:
+  - name: query
+    path: "/api/v1/query/*"
+    methods: ["POST"]
+    rate: "10/minute"
+    per: ip
+  - name: ingest_text
+    path: "/api/v1/ingest/text"
+    methods: ["POST"]
+    rate: "5/minute"
+    per: ip
+  - name: ingest_image
+    path: "/api/v1/ingest/image"
+    methods: ["POST"]
+    rate: "10/minute"
+    per: ip
+  - name: ingest_audio
+    path: "/api/v1/ingest/audio"
+    methods: ["POST"]
+    rate: "5/minute"
+    per: ip
+  - name: auth
+    path: "/api/v1/auth/token"
+    methods: ["POST"]
+    rate: "5/minute"
+    per: ip
+  - name: global
+    path: "*"
+    methods: ["*"]
+    rate: "100/minute"
+    per: ip

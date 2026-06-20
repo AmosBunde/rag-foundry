@@ -1,0 +1,47 @@
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Architecture directory to deploy'
+        required: true
+        default: '01-hybrid-rag'
+        type: choice
+        options:
+          - 01-hybrid-rag
+          - 02-graph-rag
+          - 03-agentic-rag-hospital
+          - 04-corrective-rag
+          - 05-multimodal-rag
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.0"
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init and Apply
+        working-directory: ${{ github.event.inputs.architecture }}/infra/azure
+        run: |
+          terraform init
+          terraform plan -var="environment=${{ github.event.inputs.environment }}"
+          terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment }}"

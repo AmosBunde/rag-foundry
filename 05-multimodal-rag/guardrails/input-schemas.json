@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Multi-Modal RAG Input Schemas",
+  "description": "JSON Schema snippets for request validation",
+  "schemas": {
+    "TextIngestRequest": {
+      "type": "object",
+      "required": ["documents"],
+      "properties": {
+        "documents": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "text": { "type": "string", "minLength": 1, "maxLength": 100000 },
+              "metadata": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "MultimodalQueryRequest": {
+      "type": "object",
+      "required": ["query"],
+      "properties": {
+        "query": { "type": "string", "minLength": 3, "maxLength": 2000 },
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "modalities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["text", "image", "audio"] }
+        }
+      }
+    }
+  }
+}

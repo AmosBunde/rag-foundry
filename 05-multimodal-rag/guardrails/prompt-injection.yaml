@@ -1,0 +1,15 @@
+# Heuristic patterns for prompt injection detection.
+patterns:
+  - "ignore\\s+(previous|above|earlier)\\s+instructions?"
+  - "disregard\\s+(previous|above|earlier)\\s+instructions?"
+  - "system\\s*:"
+  - "you\\s+are\\s+now\\s+"
+  - "new\\s+role\\s*:"
+  - "\\{\\{.*\\}\\}"
+  - "<script"
+
+# Optional LLM-based classifier configuration
+llm_classifier:
+  enabled: false
+  model: "llama3:8b"
+  threshold: 0.7

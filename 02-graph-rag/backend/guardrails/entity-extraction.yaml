@@ -1,0 +1,38 @@
+# Configuration for the lightweight entity extraction used during ingestion.
+# Production deployments can replace this with spaCy NER or an LLM extractor.
+
+strategy: regex
+
+regex:
+  # Capitalised multi-word phrases, e.g. "Graph RAG", "Neo4j", "United Kingdom"
+  capitalised_phrase: "\\b([A-Z][a-zA-Z]*(?:\\s+[A-Z][a-zA-Z]*)+)\\b"
+  # Quoted strings treated as candidate entities
+  quoted_phrase: '"([^"]{3,60})"'
+
+filters:
+  min_length: 3
+  max_entities_per_chunk: 20
+  # Lowercase stop words that should not be treated as entities
+  stop_words:
+    - the
+    - and
+    - for
+    - with
+    - from
+    - this
+    - that
+    - are
+    - was
+    - were
+    - been
+    - have
+    - has
+    - had
+    - will
+    - would
+    - could
+    - should
+
+relationships:
+  # Relationships are derived from entity co-occurrence within a chunk.
+  default_type: CO_OCCURS_WITH

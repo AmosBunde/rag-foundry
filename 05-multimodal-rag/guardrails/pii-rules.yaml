@@ -1,0 +1,23 @@
+rules:
+  - entity: US_SSN
+    pattern: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+    action: block
+  - entity: CREDIT_CARD
+    pattern: "\\b\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}\\b"
+    action: block
+  - entity: EMAIL
+    pattern: "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b"
+    action: flag
+  - entity: PHONE
+    pattern: "\\b\\d{3}-\\d{3}-\\d{4}\\b"
+    action: flag
+
+# Optional Presidio entities to enable when USE_PRESIDIO=true
+presidio_entities:
+  - PERSON
+  - LOCATION
+  - ORGANIZATION
+  - CREDIT_CARD
+  - US_SSN
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER

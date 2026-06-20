@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      architectures: ${{ steps.filter.outputs.architectures }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            01-hybrid-rag:
+              - '01-hybrid-rag/**'
+            02-graph-rag:
+              - '02-graph-rag/**'
+            03-agentic-rag-hospital:
+              - '03-agentic-rag-hospital/**'
+            04-corrective-rag:
+              - '04-corrective-rag/**'
+            05-multimodal-rag:
+              - '05-multimodal-rag/**'
+            shared:
+              - 'docker-compose.yml'
+              - 'Makefile'
+              - 'scripts/**'
+
+  backend-tests:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture:
+          - 01-hybrid-rag
+          - 02-graph-rag
+          - 03-agentic-rag-hospital
+          - 04-corrective-rag
+          - 05-multimodal-rag
+    if: ${{ needs.changes.outputs.architectures != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        working-directory: ${{ matrix.architecture }}/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: Run backend tests
+        working-directory: ${{ matrix.architecture }}/backend
+        run: pytest --cov=app --cov-report=xml --cov-report=term
+
+  frontend-tests:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture:
+          - 01-hybrid-rag
+          - 02-graph-rag
+          - 03-agentic-rag-hospital
+          - 04-corrective-rag
+          - 05-multimodal-rag
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        working-directory: ${{ matrix.architecture }}/frontend
+        run: npm ci
+      - name: Lint
+        working-directory: ${{ matrix.architecture }}/frontend
+        run: npm run lint
+      - name: Unit tests
+        working-directory: ${{ matrix.architecture }}/frontend
+        run: npm run test:ci
+
+  terraform-validate:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture:
+          - 01-hybrid-rag
+          - 02-graph-rag
+          - 03-agentic-rag-hospital
+          - 04-corrective-rag
+          - 05-multimodal-rag
+        cloud:
+          - aws
+          - azure
+          - gcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.0"
+      - name: Validate Terraform
+        working-directory: ${{ matrix.architecture }}/infra/${{ matrix.cloud }}
+        run: |
+          terraform init -backend=false
+          terraform validate

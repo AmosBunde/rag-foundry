@@ -1,0 +1,14 @@
+default: "100/minute"
+
+endpoints:
+  /api/v1/auth/token: "10/minute"
+  /api/v1/ingest: "30/minute"
+  /api/v1/query/graph: "60/minute"
+  /api/v1/graph/entities: "60/minute"
+  /api/v1/graph/expand/{entity_id}: "60/minute"
+
+storage:
+  # In development slowapi uses in-memory storage.
+  # In production set REDIS_URL to a Redis backend.
+  backend: memory
+  redis_url: "${REDIS_URL}"

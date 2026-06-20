@@ -1,0 +1,26 @@
+# Media upload safety configuration
+rules:
+  images:
+    max_size_mb: 10
+    allowed_mime_types:
+      - "image/jpeg"
+      - "image/png"
+      - "image/webp"
+    unsafe_filename_patterns:
+      - "<>:\"|?*"
+      - "\.\./"
+  audio:
+    max_size_mb: 50
+    allowed_mime_types:
+      - "audio/mpeg"
+      - "audio/wav"
+      - "audio/webm"
+      - "audio/mp4"
+    unsafe_filename_patterns:
+      - "<>:\"|?*"
+      - "\.\./"
+
+# Optional cloud content moderation API placeholders
+moderation_api:
+  enabled: false
+  provider: "" # e.g. aws_rekognition, azure_content_safety, google_vision
