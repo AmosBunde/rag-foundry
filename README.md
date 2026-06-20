@@ -102,7 +102,7 @@ Each architecture includes Terraform modules for:
 - Azure
 - GCP
 
-Deploy via GitHub Actions (`deploy-aws.yml`, `deploy-azure.yml`, `deploy-gcp.yml) or manually from the `infra/<cloud>` directory. See each architecture's README for cloud-specific instructions.
+Deploy via GitHub Actions (`deploy-aws.yml`, `deploy-azure.yml`, `deploy-gcp.yml`) or manually from the `infra/<cloud>` directory. See each architecture's README for cloud-specific instructions.
 
 ## 🔒 Security & Guardrails
 
