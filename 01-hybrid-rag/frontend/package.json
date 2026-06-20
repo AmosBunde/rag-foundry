@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start -p 3000",
     "test": "vitest",
-    "test:ci": "vitest run && playwright test",
+    "test:ci": "vitest run",
+    "test:e2e": "playwright test",
     "lint": "next lint",
     "format": "prettier --write .",
     "e2e": "playwright test"

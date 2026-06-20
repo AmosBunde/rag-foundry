@@ -4,6 +4,8 @@ set -euo pipefail
 ARCH="${1:-all}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+PYTHON_CMD="${PYTHON_CMD:-python3}"
+
 cd "$ROOT_DIR"
 
 run_backend_tests() {
@@ -12,7 +14,15 @@ run_backend_tests() {
         echo "==> Running backend tests for $dir"
         (
             cd "$dir/backend"
-            python -m pytest --cov=app --cov-report=term-missing
+            if [ ! -d ".venv" ]; then
+                echo "    Creating virtual environment..."
+                "$PYTHON_CMD" -m venv .venv
+            fi
+            source .venv/bin/activate
+            echo "    Installing dependencies..."
+            pip install -q -r requirements.txt -r requirements-dev.txt
+            echo "    Running pytest..."
+            pytest -q --cov=app --cov-report=term-missing --cov-fail-under=80
         )
     else
         echo "==> Skipping backend tests for $dir (no requirements-dev.txt)"
@@ -25,6 +35,12 @@ run_frontend_tests() {
         echo "==> Running frontend tests for $dir"
         (
             cd "$dir/frontend"
+            if [ ! -d "node_modules" ]; then
+                echo "    Installing npm dependencies..."
+                npm install
+            fi
+            echo "    Running build and tests..."
+            npm run build
             npm run test:ci
         )
     else
