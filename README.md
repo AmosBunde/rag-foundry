@@ -73,6 +73,16 @@ Each backend test suite enforces a minimum 80% code coverage gate.
 | Complexity | Medium | High | High | Medium | High |
 | Best For | General QA | Structured knowledge | Medical/Agent workflows | High-precision QA | Media-rich QA |
 
+## 💰 Cost & Scaling Strategy
+
+| Architecture | Scaling Vector | Cost Driver | Scaling Strategy |
+|--------------|----------------|-------------|------------------|
+| Hybrid RAG | Horizontal API + vector DB | Elasticsearch + Qdrant replicas | Scale API containers; add Qdrant/ES replicas; cache frequent queries in Redis. |
+| Graph RAG | Graph store + vector DB | Neo4j memory + query complexity | Scale read replicas; pre-compute graph snapshots; offload heavy traversals. |
+| Agentic RAG | LLM calls + agent iterations | LangGraph/LLM token usage | Limit agent loop iterations; use cheaper models for planner/verifier; add request quotas. |
+| Corrective RAG | Retrieval + evaluator loops | Extra LLM grading calls | Cache retrieval scores; short-circuit on high confidence; batch feedback writes. |
+| Multi-Modal RAG | Media workers + vector DB | Transcription/embedding workers + storage | Scale Celery workers; store media in object storage; compress embeddings. |
+
 ## 📁 Repository Structure
 
 ```
