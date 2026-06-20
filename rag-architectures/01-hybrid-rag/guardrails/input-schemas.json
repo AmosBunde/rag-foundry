@@ -1,0 +1,36 @@
+{
+  "QueryRequest": {
+    "query": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 2000
+    },
+    "top_k": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 5
+    },
+    "use_dense": {
+      "type": "boolean",
+      "default": true
+    },
+    "use_sparse": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "Document": {
+    "id": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100000
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

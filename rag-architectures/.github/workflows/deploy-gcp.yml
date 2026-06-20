@@ -1,0 +1,50 @@
+name: Deploy to GCP
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Architecture directory to deploy'
+        required: true
+        default: '01-hybrid-rag'
+        type: choice
+        options:
+          - 01-hybrid-rag
+          - 02-graph-rag
+          - 03-agentic-rag-hospital
+          - 04-corrective-rag
+          - 05-multimodal-rag
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.0"
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Terraform Init and Apply
+        working-directory: rag-architectures/${{ github.event.inputs.architecture }}/infra/gcp
+        run: |
+          terraform init
+          terraform plan -var="environment=${{ github.event.inputs.environment }}"
+          terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment }}"

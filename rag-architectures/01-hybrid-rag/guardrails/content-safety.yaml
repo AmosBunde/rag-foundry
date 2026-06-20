@@ -1,0 +1,16 @@
+# Mock content safety rules. Replace with AWS Comprehend / Azure Content Safety in production.
+rules:
+  - category: hate
+    severity_threshold: medium
+    action: block
+  - category: violence
+    severity_threshold: low
+    action: block
+  - category: harassment
+    severity_threshold: medium
+    action: flag
+
+# Heuristic patterns used as fallback when no cloud API is configured
+heuristic_patterns:
+  - "\\b(hate|kill|attack|violence)\\b"
+  - "\\b(bomb|terrorist|murder)\\b"

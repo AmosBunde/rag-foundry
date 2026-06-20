@@ -1,0 +1,49 @@
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Architecture directory to deploy'
+        required: true
+        default: '01-hybrid-rag'
+        type: choice
+        options:
+          - 01-hybrid-rag
+          - 02-graph-rag
+          - 03-agentic-rag-hospital
+          - 04-corrective-rag
+          - 05-multimodal-rag
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Terraform Init and Apply
+        working-directory: rag-architectures/${{ github.event.inputs.architecture }}/infra/aws
+        run: |
+          terraform init
+          terraform plan -var="environment=${{ github.event.inputs.environment }}"
+          terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment }}"
