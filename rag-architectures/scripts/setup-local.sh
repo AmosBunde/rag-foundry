@@ -43,22 +43,22 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Python 3.11
+# Python 3.11+
 # ---------------------------------------------------------------------------
-if ! command -v python3.11 &>/dev/null; then
-    echo "Installing Python 3.11..."
+if ! command -v python3.12 &>/dev/null && ! command -v python3.11 &>/dev/null; then
+    echo "Installing Python 3.12..."
     if [[ "$OS" == "linux" ]]; then
         sudo apt-get update
         sudo apt-get install -y software-properties-common
         sudo add-apt-repository -y ppa:deadsnakes/ppa
         sudo apt-get update
-        sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+        sudo apt-get install -y python3.12 python3.12-venv python3.12-dev
     else
-        echo "Please install Python 3.11 manually on macOS."
+        echo "Please install Python 3.11+ manually on macOS."
         exit 1
     fi
 else
-    echo "Python 3.11 already installed: $(python3.11 --version)"
+    echo "Python already installed: $(python3 --version)"
 fi
 
 # ---------------------------------------------------------------------------
