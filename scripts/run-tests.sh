@@ -33,12 +33,12 @@ run_frontend_tests() {
 }
 
 if [ "$ARCH" == "all" ]; then
-    for dir in rag-architectures/0*-*/; do
+    for dir in 0*-*/; do
         run_backend_tests "$dir"
         run_frontend_tests "$dir"
     done
 else
-    dir="rag-architectures/$ARCH"
+    dir="$ARCH"
     if [ ! -d "$dir" ]; then
         echo "Architecture $ARCH not found"
         exit 1

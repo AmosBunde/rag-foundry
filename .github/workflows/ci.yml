@@ -18,19 +18,19 @@ jobs:
         with:
           filters: |
             01-hybrid-rag:
-              - 'rag-architectures/01-hybrid-rag/**'
+              - '01-hybrid-rag/**'
             02-graph-rag:
-              - 'rag-architectures/02-graph-rag/**'
+              - '02-graph-rag/**'
             03-agentic-rag-hospital:
-              - 'rag-architectures/03-agentic-rag-hospital/**'
+              - '03-agentic-rag-hospital/**'
             04-corrective-rag:
-              - 'rag-architectures/04-corrective-rag/**'
+              - '04-corrective-rag/**'
             05-multimodal-rag:
-              - 'rag-architectures/05-multimodal-rag/**'
+              - '05-multimodal-rag/**'
             shared:
-              - 'rag-architectures/docker-compose.yml'
-              - 'rag-architectures/Makefile'
-              - 'rag-architectures/scripts/**'
+              - 'docker-compose.yml'
+              - 'Makefile'
+              - 'scripts/**'
 
   backend-tests:
     needs: changes
@@ -51,13 +51,13 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        working-directory: rag-architectures/${{ matrix.architecture }}/backend
+        working-directory: ${{ matrix.architecture }}/backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
       - name: Run backend tests
-        working-directory: rag-architectures/${{ matrix.architecture }}/backend
+        working-directory: ${{ matrix.architecture }}/backend
         run: pytest --cov=app --cov-report=xml --cov-report=term
 
   frontend-tests:
@@ -78,13 +78,13 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        working-directory: rag-architectures/${{ matrix.architecture }}/frontend
+        working-directory: ${{ matrix.architecture }}/frontend
         run: npm ci
       - name: Lint
-        working-directory: rag-architectures/${{ matrix.architecture }}/frontend
+        working-directory: ${{ matrix.architecture }}/frontend
         run: npm run lint
       - name: Unit tests
-        working-directory: rag-architectures/${{ matrix.architecture }}/frontend
+        working-directory: ${{ matrix.architecture }}/frontend
         run: npm run test:ci
 
   terraform-validate:
@@ -108,7 +108,7 @@ jobs:
         with:
           terraform_version: "1.8.0"
       - name: Validate Terraform
-        working-directory: rag-architectures/${{ matrix.architecture }}/infra/${{ matrix.cloud }}
+        working-directory: ${{ matrix.architecture }}/infra/${{ matrix.cloud }}
         run: |
           terraform init -backend=false
           terraform validate

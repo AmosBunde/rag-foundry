@@ -12,7 +12,7 @@ The template must support multiple deployment targets so teams can choose the en
 
 Adopt a **multi-platform deployment strategy** with two layers:
 
-1. **Local development**: Docker Compose defined at the repository root (`rag-architectures/docker-compose.yml`) provisions shared data stores and optional application profiles.
+1. **Local development**: Docker Compose defined at the repository root (`docker-compose.yml`) provisions shared data stores and optional application profiles.
 2. **Cloud / remote**: Terraform module scaffolds under `infra/{bare-metal,aws,azure,gcp}/` provide per-platform infrastructure-as-code starting points.
 
 Each module is intentionally a scaffold. Teams are expected to extend modules with their own networking, secrets management, TLS, and backup policies.

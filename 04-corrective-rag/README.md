@@ -1,37 +1,33 @@
-# 03-agentic-rag-hospital
+# 04-corrective-rag
 
-A production-template implementation of **Agentic RAG** for hospital medical QA. The backend uses **FastAPI** and a **LangGraph/LangChain** multi-agent pipeline with planner, retriever, verifier, and responder (safety) agents. It retrieves from both dense (Qdrant + Ollama embeddings) and sparse (Elasticsearch BM25) indexes, fuses results with **Reciprocal Rank Fusion (RRF)**, and returns observable reasoning steps with every answer.
+A production-template implementation of **Corrective RAG** that augments hybrid dense + sparse retrieval with a self-correcting feedback loop. The backend is built with **FastAPI**; the `frontend/` directory is a **Next.js 14** application that visualises retrieval iterations, confidence scores, and user feedback.
 
-This architecture is part of the [RAG Foundry](../README.md) monorepo and shares the root `docker-compose.yml`, `Makefile`, and `scripts/` tooling.
+This architecture is part of the RAG Foundry monorepo and shares the root `docker-compose.yml`, `Makefile`, and `scripts/` tooling.
 
 ---
 
 ## Overview
 
-Agentic RAG Hospital addresses the need for transparent, safety-first medical question answering:
+Corrective RAG addresses the problem of low-confidence retrieval by repeatedly evaluating and rewriting the query until the retrieved context is likely to answer the user's question:
 
-- **Planner agent** decides how to answer and produces a focused retrieval query.
-- **Retriever agent** performs hybrid dense + sparse retrieval and boosts patient-specific sources.
-- **Verifier agent** checks safety, coverage, and guardrail compliance.
-- **Responder / safety agent** generates an educational answer or refuses unsafe queries and appends a medical disclaimer.
-- **Observable state** — every response includes the plan, per-agent reasoning steps, sources, and safety status.
+- **Hybrid retrieval** combines dense vector search (Qdrant + Ollama embeddings) with sparse lexical search (Elasticsearch BM25).
+- **Confidence scoring** uses an LLM (Ollama) to judge whether the retrieved passages are relevant to the query.
+- **Self-correction** triggers query rewriting and re-retrieval when confidence is below a threshold, up to a maximum number of iterations.
+- **Feedback-driven re-ranking** boosts or penalises chunks based on thumbs-up / thumbs-down feedback, stored in a mock Postgres/Redis layer.
 
 The template ships with:
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | API Framework | FastAPI 0.110 | REST API, dependency injection, auto-generated OpenAPI docs |
-| Agent Orchestration | LangGraph 0.1 / LangChain 0.2 | Multi-agent state graph |
 | Dense Store | Qdrant 1.9 | Vector search with cosine similarity, 768-dim embeddings |
 | Sparse Store | Elasticsearch 8.13 | BM25 lexical search |
 | Embeddings / LLM | Ollama | Local `nomic-embed-text` embeddings and `llama3:8b` generation |
 | Auth | JWT (python-jose) | Bearer-token auth with a demo user (replace in production) |
-| Guardrails | Regex + optional Presidio + medical safety | Input length, prompt injection, PII, toxicity, medical-advice detection |
+| Guardrails | Regex + optional Presidio | Input length, prompt injection, PII, toxicity checks |
 | Observability | Prometheus + OpenTelemetry + structlog | Metrics, distributed traces, structured JSON logs |
 | Rate Limiting | slowapi | Per-IP rate limits (Redis-backed in production) |
-| Patient Data | FHIR R4 JSON | Mock patient records under `data/patients/` |
 | Infra (scaffold) | Terraform | Modules for bare-metal/VPS, AWS, Azure, and GCP |
-| Frontend | Next.js 14 + shadcn/ui | Medical chat UI with agent reasoning display |
 
 ---
 
@@ -39,14 +35,16 @@ The template ships with:
 
 ```mermaid
 graph LR
-    User([Clinician / Frontend])
-    APIGateway[FastAPI Backend<br/>Port 8003]
+    User([User / Frontend])
+    APIGateway[FastAPI Backend<br/>Port 8004]
     Auth[OAuth2 JWT Auth]
     Guardrails[Guardrails Layer]
-    Planner[Planner Agent]
-    Retriever[Retriever Agent]
-    Verifier[Verifier Agent]
-    Responder[Responder / Safety Agent]
+    DenseRetriever[Dense Retriever<br/>Qdrant + Ollama]
+    SparseRetriever[Sparse Retriever<br/>Elasticsearch BM25]
+    Fusion[RRF Fusion Engine]
+    Corrective[Corrective RAG Service]
+    LLM[LLM Evaluator<br/>Query Rewriter]
+    Feedback[Feedback Store<br/>Postgres/Redis mock]
     Qdrant[(Qdrant)]
     ES[(Elasticsearch)]
     Ollama[(Ollama)]
@@ -56,14 +54,16 @@ graph LR
     User -->|HTTP /api/v1| APIGateway
     APIGateway --> Auth
     APIGateway --> Guardrails
-    APIGateway --> Planner
-    Planner --> Retriever
-    Retriever --> Qdrant
-    Retriever --> ES
-    Retriever --> Ollama
-    Retriever --> Verifier
-    Verifier --> Responder
-    Responder --> Ollama
+    APIGateway --> Corrective
+    Corrective --> DenseRetriever
+    Corrective --> SparseRetriever
+    Corrective --> LLM
+    Corrective --> Feedback
+    DenseRetriever --> Qdrant
+    DenseRetriever --> Ollama
+    SparseRetriever --> ES
+    DenseRetriever --> Fusion
+    SparseRetriever --> Fusion
     APIGateway -->|metrics| Prometheus
     APIGateway -.->|rate limiting| Redis
 ```
@@ -71,12 +71,12 @@ graph LR
 ### Request Flow
 
 1. Client authenticates via `/api/v1/auth/token` and receives a JWT.
-2. Query is validated by guardrails (length, prompt injection, PII, toxicity, medical advice).
-3. The planner agent creates a plan and a focused retrieval query.
-4. The retriever agent embeds the query via Ollama, searches Qdrant, searches Elasticsearch BM25, and fuses results with RRF.
-5. The verifier agent checks that sources cover the query and flags safety concerns.
-6. The responder agent generates a safe, educational answer or refuses the query, appending a medical disclaimer when needed.
-7. The response includes the answer, plan, reasoning steps, sources, safety status, and latency.
+2. Query is validated by guardrails (length, prompt injection, PII, toxicity).
+3. The corrective service retrieves chunks using dense and/or sparse search and fuses them with RRF.
+4. An LLM evaluates relevance and returns a confidence score in `[0, 1]`.
+5. If confidence is below `CONFIDENCE_THRESHOLD` (default `0.75`) and fewer than `MAX_CORRECTIVE_ITERATIONS` (default `3`) iterations have run, the query is rewritten and re-retrieval is attempted.
+6. Feedback scores from Postgres/Redis are applied to re-rank chunks.
+7. A final answer is generated from the best retrieved context, along with iteration metadata.
 
 ---
 
@@ -85,7 +85,7 @@ graph LR
 ### Prerequisites
 
 - Docker + Docker Compose
-- Python 3.12+ (for local development)
+- Python 3.12 (for local development)
 - Node.js 20+ (for frontend work)
 - Ollama (or use the Ollama container in `docker-compose.yml`)
 - `make` (optional, for shared scripts)
@@ -94,7 +94,7 @@ The [`scripts/setup-local.sh`](../scripts/setup-local.sh) helper can install the
 
 ### 1. Start shared infrastructure
 
-From the repository root (`rag-architectures/`):
+From the repository root (``):
 
 ```bash
 docker compose up -d
@@ -123,62 +123,75 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8003
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8004
 ```
 
 ### 4. Verify the service
 
 ```bash
-curl http://localhost:8003/health
-curl http://localhost:8003/ready
+curl http://localhost:8004/health
+curl http://localhost:8004/ready
 ```
 
-### 5. Authenticate and query
+### 5. Ingest and query
 
 Authenticate:
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:8003/api/v1/auth/token \
+TOKEN=$(curl -s -X POST http://localhost:8004/api/v1/auth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=demo&password=demo" | jq -r '.access_token')
 ```
 
-Ask the agent:
+Ingest a document:
 
 ```bash
-curl -X POST http://localhost:8003/api/v1/query/agent \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What is metformin used for?", "patient_id": "pat-001", "top_k": 3}'
-```
-
-The response contains `answer`, `plan`, `reasoning`, `sources`, and `safety_checks_passed`.
-
-### 6. Ingest documents
-
-```bash
-curl -X POST http://localhost:8003/api/v1/ingest \
+curl -X POST http://localhost:8004/api/v1/ingest \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "documents": [
       {
-        "id": "med-001",
-        "text": "Metformin is a first-line medication for type 2 diabetes mellitus.",
-        "metadata": {"source": "clinical-guidelines"}
+        "id": "doc-001",
+        "text": "Corrective RAG improves retrieval by rewriting queries when confidence is low.",
+        "metadata": {"source": "readme"}
       }
     ]
   }'
 ```
 
-### 7. View a patient summary
+Run a corrective query:
 
 ```bash
-curl http://localhost:8003/api/v1/patients/pat-001 \
-  -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:8004/api/v1/query/corrective \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is corrective retrieval?", "top_k": 5}'
 ```
 
-### 8. Start the frontend
+Submit feedback on a result:
+
+```bash
+curl -X POST http://localhost:8004/api/v1/query/feedback \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_id": "q-001",
+    "result_id": "doc-001::chunk::0",
+    "helpful": true,
+    "comment": "Relevant"
+  }'
+```
+
+### 6. Run via Docker Compose (all services)
+
+```bash
+docker compose --profile apps up -d
+```
+
+This also builds and starts the `04-corrective-rag-backend` container on port `8004`.
+
+### 7. Start the frontend
 
 ```bash
 cd frontend
@@ -186,7 +199,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and sign in with `demo` / `demo`.
+Open [http://localhost:3000](http://localhost:3000), sign in with `demo` / `demo`, and use the chat UI to see retrieval iterations, confidence scores, and feedback buttons.
 
 ---
 
@@ -201,9 +214,9 @@ Best for: self-hosted labs, single-tenant deployments, or air-gapped environment
 Provisioned resources:
 
 - Docker Engine on the target host.
-- `docker-compose.yml` deployed via Terraform `local_file`.
-- systemd service units for the backend and Nginx.
-- Optional Certbot/Let's Encrypt for HTTPS.
+- `docker-compose.yml` (or a production variant) deployed via Terraform `remote-exec` or Ansible.
+- systemd service unit for the backend container.
+- Optional: Caddy or Traefik reverse proxy for TLS termination.
 
 Deploy:
 
@@ -211,6 +224,14 @@ Deploy:
 cd infra/bare-metal
 terraform init
 terraform apply -var="host=203.0.113.10" -var="ssh_user=ubuntu"
+```
+
+After apply:
+
+```bash
+ssh ubuntu@203.0.113.10
+cd /opt/corrective-rag
+docker compose up -d
 ```
 
 ### AWS
@@ -222,7 +243,7 @@ Provisioned resources (intended module):
 - VPC, public/private subnets, NAT gateway.
 - ECS Fargate service for the FastAPI backend.
 - Amazon OpenSearch Service for sparse retrieval (or self-managed Elasticsearch on EC2).
-- Amazon Qdrant on EC2 or a managed vector store.
+- Amazon Qdrant on EC2 or a managed vector store such as Amazon OpenSearch Serverless with vector engine.
 - ElastiCache (Redis) for rate limiting.
 - Secrets Manager for JWT secret and service credentials.
 - Application Load Balancer with TLS.
@@ -233,6 +254,15 @@ Deploy:
 cd infra/aws
 terraform init
 terraform apply -var="region=us-east-1" -var="environment=production"
+```
+
+Push the Docker image to ECR:
+
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
+docker build -t corrective-rag-backend ../../backend
+docker tag corrective-rag-backend:latest <account>.dkr.ecr.us-east-1.amazonaws.com/corrective-rag-backend:latest
+docker push <account>.dkr.ecr.us-east-1.amazonaws.com/corrective-rag-backend:latest
 ```
 
 ### Azure
@@ -299,7 +329,7 @@ python -m pytest
 make test
 
 # Only this architecture
-make test ARCH=03-agentic-rag-hospital
+make test ARCH=04-corrective-rag
 ```
 
 ### Test categories
@@ -307,15 +337,14 @@ make test ARCH=03-agentic-rag-hospital
 | File | Coverage |
 |------|----------|
 | `tests/test_auth.py` | JWT token issuance and validation |
-| `tests/test_guardrails.py` | Prompt injection, PII, toxicity, medical safety |
+| `tests/test_guardrails.py` | Prompt injection, PII, toxicity, length checks, metadata guardrails |
 | `tests/test_health.py` | `/health`, `/ready`, `/metrics` |
 | `tests/test_ingestion.py` | Document chunking and dual indexing |
-| `tests/test_llm.py` | Ollama generate and embed client |
-| `tests/test_query.py` | Agent query endpoint + guardrail blocking |
-| `tests/test_agents.py` | Planner, retriever, verifier, responder nodes |
-| `tests/test_patients.py` | FHIR patient summary endpoint |
+| `tests/test_llm.py` | Ollama generate, query rewrite, relevance evaluation, answer generation |
+| `tests/test_feedback.py` | Feedback store scoring and persistence |
+| `tests/test_corrective.py` | Corrective loop, confidence threshold, rewrite exhaustion, feedback boost |
+| `tests/test_query.py` | Corrective, feedback, hybrid, dense, sparse endpoints + guardrail blocking |
 | `tests/test_retrieval.py` | Qdrant and Elasticsearch retriever unit tests |
-| `../tests/test_integration.py` | End-to-end API integration tests |
 
 ### Lint and format
 
@@ -345,11 +374,9 @@ The guardrails are layered in `backend/app/guardrails.py` and configured via YAM
 
 1. **Input length** — rejects queries or documents exceeding configurable limits.
 2. **Prompt injection** — regex heuristics for common instruction-override patterns.
-3. **PII detection** — regex for SSN, credit card, email, phone, patient names; optional Presidio entities.
+3. **PII detection** — regex for SSN, credit card, email, phone; optional Presidio entities.
 4. **Toxicity / content safety** — heuristic keyword lists; cloud API placeholders in `content-safety.yaml`.
-5. **Medical advice detection** — flags requests that ask for personal diagnosis or treatment recommendations.
-6. **Verifier agent** — LLM-based assessment of whether the query can be safely answered from retrieved sources.
-7. **Responder agent** — refuses unsafe queries and appends a medical disclaimer to educational answers.
+5. **Metadata guardrails** — prevents injection patterns in document metadata.
 
 ### Configuration files
 
@@ -359,7 +386,6 @@ The guardrails are layered in `backend/app/guardrails.py` and configured via YAM
 | `guardrails/prompt-injection.yaml` | Heuristic patterns and optional LLM-based classifier |
 | `guardrails/pii-rules.yaml` | Regex and Presidio entity rules |
 | `guardrails/content-safety.yaml` | Content categories and severity thresholds |
-| `guardrails/medical-safety.yaml` | Medical advice patterns and disclaimer/refusal rules |
 | `guardrails/rate-limit-config.yaml` | Per-endpoint rate limits |
 
 ### Enabling Presidio PII checks
@@ -380,9 +406,9 @@ USE_PRESIDIO=true uvicorn app.main:app --reload
 
 FastAPI auto-generates interactive API documentation:
 
-- **Swagger UI**: [http://localhost:8003/docs](http://localhost:8003/docs)
-- **ReDoc**: [http://localhost:8003/redoc](http://localhost:8003/redoc)
-- **OpenAPI JSON**: [http://localhost:8003/openapi.json](http://localhost:8003/openapi.json)
+- **Swagger UI**: [http://localhost:8004/docs](http://localhost:8004/docs)
+- **ReDoc**: [http://localhost:8004/redoc](http://localhost:8004/redoc)
+- **OpenAPI JSON**: [http://localhost:8004/openapi.json](http://localhost:8004/openapi.json)
 
 ### Key endpoints
 
@@ -393,41 +419,47 @@ FastAPI auto-generates interactive API documentation:
 | GET | `/metrics` | Prometheus metrics | No |
 | POST | `/api/v1/auth/token` | OAuth2 password login | No |
 | POST | `/api/v1/ingest` | Ingest documents into both indexes | Bearer JWT |
-| POST | `/api/v1/query/agent` | Multi-agent medical QA | Bearer JWT |
-| GET | `/api/v1/agents/status` | Agent graph status | Bearer JWT |
-| GET | `/api/v1/patients/{id}` | FHIR patient summary | Bearer JWT |
+| POST | `/api/v1/query/corrective` | Self-correcting retrieval with confidence | Bearer JWT |
+| POST | `/api/v1/query/feedback` | Store user feedback on a result | Bearer JWT |
+| POST | `/api/v1/query/hybrid` | Dense + sparse + RRF | Bearer JWT |
+| POST | `/api/v1/query/dense` | Dense-only search | Bearer JWT |
+| POST | `/api/v1/query/sparse` | Sparse-only search | Bearer JWT |
 
 ### Example request bodies
 
-**Agent query:**
+**Ingest:**
 
 ```json
 {
-  "query": "What is metformin used for?",
-  "patient_id": "pat-001",
-  "top_k": 3
+  "documents": [
+    {
+      "id": "doc-001",
+      "text": "Corrective RAG rewrites queries when retrieval confidence is low.",
+      "metadata": {"source": "docs"}
+    }
+  ]
 }
 ```
 
-**Agent query response:**
+**Corrective query:**
 
 ```json
 {
-  "query": "What is metformin used for?",
-  "answer": "Metformin is a first-line medication for type 2 diabetes mellitus...\n\nDisclaimer: This information is for educational purposes only...",
-  "plan": ["Analyze the question", "Retrieve relevant records", "Verify safety", "Generate educational response"],
-  "reasoning": [
-    {"agent": "planner", "step": "created_plan", "detail": {"retrieval_query": "metformin indications diabetes"}},
-    {"agent": "retriever", "step": "retrieved_sources", "detail": {"count": 3}},
-    {"agent": "verifier", "step": "verified_safety", "detail": {"safe_to_answer": true}},
-    {"agent": "responder", "step": "generated_answer", "detail": {"length": 256}}
-  ],
-  "sources": [
-    {"id": "med-001::chunk::0", "text": "Metformin is a first-line medication...", "score": 0.95, "metadata": {"source": "clinical-guidelines"}, "source": "fusion"}
-  ],
-  "safety_checks_passed": true,
-  "disclaimer": "Medical advice disclaimer appended.",
-  "latency_ms": 1234.5
+  "query": "What is corrective retrieval?",
+  "top_k": 5,
+  "use_dense": true,
+  "use_sparse": true
+}
+```
+
+**Feedback:**
+
+```json
+{
+  "query_id": "q-001",
+  "result_id": "doc-001::chunk::0",
+  "helpful": true,
+  "comment": "Relevant answer"
 }
 ```
 
@@ -454,14 +486,46 @@ docker compose ps
 docker compose logs qdrant elasticsearch
 ```
 
-If running the backend locally, verify `QDRANT_URL` and `ELASTICSEARCH_URL` point to `localhost`.
-
-### Ollama generation times out
-
-First request can be slow while the model loads. Increase the timeout or pre-load the model:
+If running the backend locally (not in Docker), verify `QDRANT_URL` and `ELASTICSEARCH_URL` point to `localhost`:
 
 ```bash
-ollama run llama3:8b
+export QDRANT_URL=http://localhost:6333
+export ELASTICSEARCH_URL=http://localhost:9200
+```
+
+If running the backend inside Docker while dependencies are on the host, use host networking or set the URLs to the Docker host IP.
+
+### Ollama embeddings time out
+
+First embedding request can be slow while the model loads. Increase the timeout or pre-load the model:
+
+```bash
+ollama run nomic-embed-text
+```
+
+If using the Dockerised Ollama, ensure the backend container can reach `http://ollama:11434` (set via `docker-compose.yml`).
+
+### Elasticsearch returns 401/403
+
+The local `docker-compose.yml` disables Elasticsearch security (`xpack.security.enabled=false`). In production, configure authentication and update `ELASTICSEARCH_URL` with credentials.
+
+### Rate limiting during load tests
+
+slowapi uses in-memory storage by default. For multi-replica deployments, switch to a Redis storage backend for slowapi.
+
+### Low recall from corrective search
+
+- Ensure both dense and sparse indexes contain the same chunked documents.
+- Tune `top_k` sent to each retriever before fusion.
+- Adjust the RRF constant `k` in `app/retrieval/fusion.py` (default `60`).
+- Lower `CONFIDENCE_THRESHOLD` to accept more results, or raise it to force more rewrites.
+
+### Presidio model not found
+
+Presidio requires the `en_core_web_sm` spaCy model. It is installed automatically via `requirements.txt`. If missing:
+
+```bash
+python -m spacy download en_core_web_sm
 ```
 
 ### Tests fail with coverage below 80%
@@ -479,5 +543,3 @@ python -m pytest --cov=app --cov-report=term-missing
 
 - [Architecture Decision Records](./adr/)
 - [C4 Diagrams](./c4/)
-- [Root RAG Foundry README](../README.md)
-- [System Landscape C4](../docs/c4/system-landscape.md)

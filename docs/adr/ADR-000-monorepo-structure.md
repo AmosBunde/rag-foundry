@@ -7,7 +7,7 @@ Accepted
 We need a single repository that hosts multiple independent, production-ready RAG architecture templates. Each template must be deployable on its own while sharing common conventions, CI/CD, and documentation patterns.
 
 ## Decision
-Adopt a monorepo with a top-level `rag-architectures/` directory. Each architecture is a self-contained folder with backend, frontend, infra, tests, guardrails, ADRs, and C4 diagrams. Shared automation lives at the root (`Makefile`, `docker-compose.yml`, `scripts/`, `.github/`).
+Adopt a monorepo with a top-level `` directory. Each architecture is a self-contained folder with backend, frontend, infra, tests, guardrails, ADRs, and C4 diagrams. Shared automation lives at the root (`Makefile`, `docker-compose.yml`, `scripts/`, `.github/`).
 
 ## Consequences
 - Positive: Easier cross-architecture comparison, shared CI/CD, consistent conventions.

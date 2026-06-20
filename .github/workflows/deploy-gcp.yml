@@ -43,7 +43,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Terraform Init and Apply
-        working-directory: rag-architectures/${{ github.event.inputs.architecture }}/infra/gcp
+        working-directory: ${{ github.event.inputs.architecture }}/infra/gcp
         run: |
           terraform init
           terraform plan -var="environment=${{ github.event.inputs.environment }}"

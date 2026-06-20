@@ -86,7 +86,7 @@ The [`scripts/setup-local.sh`](../scripts/setup-local.sh) helper can install the
 
 ### 1. Start shared infrastructure
 
-From the repository root (`rag-architectures/`):
+From the repository root (``):
 
 ```bash
 docker compose up -d

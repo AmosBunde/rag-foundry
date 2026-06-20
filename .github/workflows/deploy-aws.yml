@@ -42,7 +42,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Terraform Init and Apply
-        working-directory: rag-architectures/${{ github.event.inputs.architecture }}/infra/aws
+        working-directory: ${{ github.event.inputs.architecture }}/infra/aws
         run: |
           terraform init
           terraform plan -var="environment=${{ github.event.inputs.environment }}"

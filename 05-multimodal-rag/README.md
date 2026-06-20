@@ -87,7 +87,7 @@ graph LR
 
 ### 1. Start shared infrastructure
 
-From the repository root (`rag-architectures/`):
+From the repository root (``):
 
 ```bash
 docker compose up -d

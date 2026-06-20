@@ -40,7 +40,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Terraform Init and Apply
-        working-directory: rag-architectures/${{ github.event.inputs.architecture }}/infra/azure
+        working-directory: ${{ github.event.inputs.architecture }}/infra/azure
         run: |
           terraform init
           terraform plan -var="environment=${{ github.event.inputs.environment }}"

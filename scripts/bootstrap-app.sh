@@ -10,7 +10,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 ARCH="$1"
-DIR="rag-architectures/$ARCH"
+DIR="$ARCH"
 
 if [ -d "$DIR" ]; then
     echo "Directory $DIR already exists. Aborting."
