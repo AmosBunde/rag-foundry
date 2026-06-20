@@ -1,0 +1,19 @@
+# Enhanced medical safety configuration
+medical_advice:
+  # When true, requests that look like personal medical advice trigger a disclaimer/refusal.
+  require_disclaimer: true
+  # When true, the system refuses to answer personal diagnosis/treatment questions.
+  block_direct_medical_advice: false
+
+# Patterns that indicate a request for personal medical advice
+advice_patterns:
+  - "\\b(should i|do i need to|is it safe to|can i take|will i die)\\b"
+  - "\\bdiagnos(?:is|e)\\b"
+  - "\\btreatment plan\\b"
+  - "\\bprescrib(?:e|ing)\\b"
+
+# Redacted/unsafe topics that should always be refused
+unsafe_topics:
+  - "suicide"
+  - "self-harm"
+  - "illegal drugs"

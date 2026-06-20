@@ -1,0 +1,32 @@
+{
+  "AgentQueryRequest": {
+    "query": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 2000
+    },
+    "patient_id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "top_k": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 5
+    }
+  },
+  "Document": {
+    "id": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100000
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}
