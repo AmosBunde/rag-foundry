@@ -1,0 +1,20 @@
+{
+  "Document": {
+    "type": "object",
+    "required": ["id", "text"],
+    "properties": {
+      "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+      "text": { "type": "string", "minLength": 1, "maxLength": 100000 },
+      "metadata": { "type": "object" }
+    }
+  },
+  "GraphQueryRequest": {
+    "type": "object",
+    "required": ["query"],
+    "properties": {
+      "query": { "type": "string", "minLength": 3, "maxLength": 2000 },
+      "top_k": { "type": "integer", "minimum": 1, "maximum": 50, "default": 5 },
+      "graph_depth": { "type": "integer", "minimum": 1, "maximum": 5, "default": 2 }
+    }
+  }
+}

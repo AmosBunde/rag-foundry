@@ -1,0 +1,22 @@
+severity_thresholds:
+  low: allow
+  medium: flag
+  high: block
+  critical: block
+
+categories:
+  - name: hate
+    severity: high
+  - name: violence
+    severity: critical
+  - name: sexual
+    severity: high
+  - name: self_harm
+    severity: critical
+
+# Optional cloud content safety API placeholder
+cloud_api:
+  enabled: false
+  provider: "" # aws_comprehend | azure_content_safety | gcp_perspective
+  endpoint: ""
+  api_key_secret: ""

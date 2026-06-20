@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+.venv/
+.env
+
+# Node.js
+node_modules/
+.next/
+out/
+*.log
+
+# Terraform
+infra/*/.terraform/
+infra/*/terraform.tfstate*
+infra/*/out/
+
+# IDE
+.vscode/
+.idea/
